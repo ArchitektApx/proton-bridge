@@ -1,0 +1,15 @@
+name: Fork Sync
+
+on:
+    schedule:
+      - cron: '1 */12 * * *' # every 12 hours
+    workflow_dispatch: # on button click
+  
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: tgymnich/fork-sync@v2.0
+        with:
+          base: master
+          head: master
