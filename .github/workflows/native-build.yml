@@ -1,0 +1,88 @@
+name: Build ARM64 Linux
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Build for a specific tag
+        required: false
+        default: ""
+        type: string
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: buildjet-32vcpu-ubuntu-2204-arm
+    permissions:
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.10 and cache dependencies
+        uses: buildjet/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: pip
+          cache-dependency-path: |
+            **/requirements.txt
+
+      - name: Install Qt (Linux ARM64 Fork)
+        uses: ArchitektApx/install-qt-action@v4
+        with:
+          cache: true
+          version: 6.7.0
+          host: linux_arm64
+          arch: linux_gcc_arm64
+
+      - name: Setup Go 1.21.9
+        uses: buildjet/setup-go@v5
+        with:
+          go-version: 1.21.9
+          cache: true
+          cache-dependency-path: |
+            **/go.mod
+            **/go.sum
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get install -y \
+            ninja-build \
+            libglvnd-dev \
+            libsecret-1-dev \
+            pkg-config
+
+      - name: Export GitHub Actions cache environment variables
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Apply Patches
+        run: | 
+          # 0001-add-arm64.patch - add vcpkg selection for arm64 systems to build.sh
+          patch -p1 < patches/0001-add-arm64.patch
+
+          # 0002-allow-vcpkg-bootstrap-error.patch - allow vcpkg bootstrap to fail on first run (VCPKG_FORCE_SYSTEM_BINARIES=1)
+          patch -p1 < patches/0002-allow-vcpkg-bootstrap-error.patch
+
+          # 0003-fix-icu-version.patch - replace specific icu version reliance and adapt loading
+          patch -p1 < patches/0003-fix-icu-version.patch      
+
+      - name: Build
+        env:
+          VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+          VCPKG_FORCE_SYSTEM_BINARIES: "1"
+          MSYSTEM: ""
+        run: make build
+
+      - uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: 'bridge*.tgz'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          path: 'bridge*.tgz'
+          name: build-linux-latest

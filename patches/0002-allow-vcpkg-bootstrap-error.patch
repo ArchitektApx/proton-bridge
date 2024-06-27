@@ -1,0 +1,13 @@
+diff --git a/internal/frontend/bridge-gui/bridge-gui/build.sh b/internal/frontend/bridge-gui/bridge-gui/build.sh
+index 614f8a90..d584b9c8 100755
+--- a/internal/frontend/bridge-gui/bridge-gui/build.sh
++++ b/internal/frontend/bridge-gui/bridge-gui/build.sh
+@@ -70,7 +70,7 @@ VCPKG_BOOTSTRAP="${VCPKG_ROOT}/bootstrap-vcpkg.sh"
+ 
+ 
+ ${VCPKG_BOOTSTRAP} -disableMetrics
+-check_exit "Failed to bootstrap vcpkg."
++#check_exit "Failed to bootstrap vcpkg."
+ 
+ if [[ "$OSTYPE" == "darwin"* ]]; then
+     ${VCPKG_EXE} install sentry-native:arm64-osx-min-11-0 grpc:arm64-osx-min-11-0 --overlay-triplets=vcpkg/triplets --clean-after-build
