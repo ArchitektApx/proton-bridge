@@ -1,10 +1,9 @@
 name: Fork Sync
-
 on:
-    schedule:
-      - cron: '1 */12 * * *' # every 12 hours
-    workflow_dispatch: # on button click
-  
+  schedule:
+    - cron: 1 */12 * * * # every 12 hours
+  workflow_dispatch: # on button click
+
 jobs:
   sync:
     runs-on: ubuntu-latest
