@@ -1,0 +1,55 @@
+name: Release Packages
+on:
+  workflow_call:
+    inputs:
+      artifact-name:
+        description: 'The artifact containing the build to release'
+        required: false
+        type: string
+        default: 'ReleaseBundle.tar.gz'
+      version:
+        description: 'The tag version of the build to release'
+        required: true
+        type: string
+      revision:
+        description: 'The revision of the build to release'
+        required: true
+        type: string
+      run-id:
+        description: 'The run id that made the build'
+        required: true
+        type: number
+  workflow_dispatch:
+    inputs:
+      artifact-name:
+        description: 'The artifact containing the build to release'
+        required: false
+        type: string
+        default: 'ReleaseBundle.tar.gz'
+      version:
+        description: 'The tag version of the build to release'
+        required: true
+        type: string
+      revision:
+        description: 'The revision of the build to release'
+        required: true
+        type: string
+      run-id:
+        description: 'The run id that made the build'
+        required: true
+        type: number
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Release
+        run: |
+          echo "TODO: here we will release the packages in the future"

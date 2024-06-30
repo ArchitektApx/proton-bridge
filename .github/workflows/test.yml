@@ -1,0 +1,105 @@
+name: Run Tests
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Test a specific tag
+        required: false
+        default: ""
+        type: string
+      forcerunner:
+        description: Override the default buildjet-2vcpu-ubuntu-2204-arm runner
+        required: false
+        type: choice
+        options: 
+          - buildjet-2vcpu-ubuntu-2204-arm
+          - buildjet-4vcpu-ubuntu-2204-arm
+          - buildjet-8vcpu-ubuntu-2204-arm
+      fail-fast:
+        description: Fail fast
+        required: false
+        default: false
+        type: boolean
+  workflow_call:
+    inputs:
+      tag:
+        description: Test a specific tag
+        required: false
+        default: ""
+        type: string
+      fail-fast:
+        description: Fail fast
+        required: false
+        default: false
+        type: boolean
+      attest-logs:
+        description: Attest the logs
+        required: false
+        default: false
+        type: boolean
+      upload-logs:
+        description: Upload the logs
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  test:
+    runs-on: ${{ github.event.inputs.forcerunner || 'buildjet-4vcpu-ubuntu-2204-arm' }}
+    strategy:
+      matrix:
+        environment: [testlintfuzz, testintegration, testrace]
+      fail-fast: ${{ github.event.inputs.fail-fast == 'true' || github.event.inputs.fail-fast == true || false}}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          environment: 'test'
+          applypatches: true
+          usecaching: true
+          exportGHEnvVars: true
+          exportVCPKGEnvVars: true
+
+      - name: Run lint, tests and fuzzing
+        if: matrix.environment == 'testlintfuzz'
+        continue-on-error: true
+        run: |
+          # lint is not "go test" based but just exits with 0 or 1
+          make lint | tee lint.log
+          make test 2>&1 | tee test.log | gotestfmt -nofail
+          make fuzz 2>&1 | tee fuzz.log | gotestfmt -nofail
+
+      - name: Run race condition tests
+        if: matrix.environment == 'testrace'
+        continue-on-error: true
+        run: |
+          make test-race 2>&1 | tee test-race.log | gotestfmt -nofail
+          make test-integration-race 2>&1 | tee test-integration-race.log | gotestfmt -nofail
+
+      - name: Run integration tests
+        if: matrix.environment == 'testintegration'
+        continue-on-error: true
+        run: |
+          make test-integration 2>&1 | tee testintegration.log | gotestfmt -nofail
+
+      - name: attest logs
+        if: always()
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: "*.log"
+
+      - name: upload logartifacts
+        if: always()
+        id: log-upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.environment }}.logs
+          path: "*.log"
