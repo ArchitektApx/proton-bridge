@@ -74,21 +74,21 @@ jobs:
         run: |
           # lint is not "go test" based but just exits with 0 or 1
           make lint | tee lint.log
-          make test 2>&1 | tee test.log | gotestfmt -nofail
-          make fuzz 2>&1 | tee fuzz.log | gotestfmt -nofail
+          make test 2>&1 | tee test.log | gotestfmt -hide empty-packages
+          make fuzz 2>&1 | tee fuzz.log | gotestfmt -hide empty-packages
 
       - name: Run race condition tests
         if: matrix.environment == 'testrace'
         continue-on-error: true
         run: |
-          make test-race 2>&1 | tee test-race.log | gotestfmt -nofail
-          make test-integration-race 2>&1 | tee test-integration-race.log | gotestfmt -nofail
+          make test-race 2>&1 | tee test-race.log | gotestfmt -hide empty-packages
+          make test-integration-race 2>&1 | tee test-integration-race.log | gotestfmt -hide empty-packages
 
       - name: Run integration tests
         if: matrix.environment == 'testintegration'
         continue-on-error: true
         run: |
-          make test-integration 2>&1 | tee testintegration.log | gotestfmt -nofail
+          make test-integration 2>&1 | tee testintegration.log | gotestfmt -hide empty-packages
 
       - name: attest logs
         if: always()
