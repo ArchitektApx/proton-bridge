@@ -88,7 +88,10 @@ jobs:
         if: matrix.environment == 'testintegration'
         continue-on-error: true
         run: |
-          make test-integration 2>&1 | tee testintegration.log | gotestfmt -hide empty-packages
+          #make test-integration 2>&1 | tee testintegration.log | gotestfmt -hide empty-packages
+
+          go test -json -timeout=60m -p=4 -count=1 -tags=test_integration -covermode=count -coverpkg=github.com/ProtonMail/proton-bridge/v3/internal/...,github.com/ProtonMail/proton-bridge/v3/pkg/... \
+          github.com/ProtonMail/proton-bridge/v3/tests -args -test.gocoverdir=$PWD/coverage/integration | tee testintegration.log | gotestfmt -hide empty-packages
 
       - name: attest logs
         if: always()
