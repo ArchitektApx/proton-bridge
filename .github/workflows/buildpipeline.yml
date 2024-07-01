@@ -23,7 +23,7 @@ jobs:
       artifact-name: ${{ steps.fix-build-name.outputs.artifact-name }}
       version: ${{ steps.fix-build-name.outputs.version }}
       revision: ${{ steps.fix-build-name.outputs.revision }}
-      run-id: ${{ github.run_id }}
+      run-id: ${{ steps.fix-build-name.outputs.run-id }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -69,6 +69,7 @@ jobs:
           echo "artifact-name=$BUILD_NAME" >> $GITHUB_OUTPUT
           echo "version=$TAG_VER" >> $GITHUB_OUTPUT
           echo "revision=$COMMIT_SHA" >> $GITHUB_OUTPUT
+          echo "run-id=${{ github.run_id }}" >> $GITHUB_OUTPUT
 
       - name: attest build artifact
         uses: actions/attest-build-provenance@v1
@@ -79,7 +80,7 @@ jobs:
         id: build-upload
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.fix-build-name.outputs.bartifact-name }}
+          name: ${{ steps.fix-build-name.outputs.artifact-name }}
           path: ${{ steps.fix-build-name.outputs.artifact-name }}
 
   test:

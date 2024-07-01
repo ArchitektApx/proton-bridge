@@ -1,9 +1,16 @@
 diff --git a/Makefile b/Makefile
-index 22f6e279..880c551d 100644
-# make the output of "go test" parseable, prevent false positives and use parallelism
+index 22f6e279..4164683e 100644
+# fix typo that causes "warning: no packages being tested depend on matches for pattern" issue
+# add parallelism to tests to speed up CI
+# add -json flag to tests to make output parseable
 --- a/Makefile
 +++ b/Makefile
-@@ -237,20 +237,20 @@ GOCOVERAGE=-covermode=count -coverpkg=github.com/ProtonMail/proton-bridge/v3/int
+@@ -233,24 +233,24 @@ add-license:
+ change-copyright-year:
+ 	./utils/missing_license.sh change-year
+ 
+-GOCOVERAGE=-covermode=count -coverpkg=github.com/ProtonMail/proton-bridge/v3/internal/...,github.com/ProtonMail/proton-bridge/v3/pkg/...,
++GOCOVERAGE=-covermode=count -coverpkg=github.com/ProtonMail/proton-bridge/v3/internal/...,github.com/ProtonMail/proton-bridge/v3/pkg/...
  GOCOVERDIR=-args -test.gocoverdir=$$PWD/coverage
  
  test: gofiles

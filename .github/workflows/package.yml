@@ -17,7 +17,7 @@ on:
       run-id:
         description: 'The run id that made the build'
         required: true
-        type: number
+        type: string
   workflow_dispatch:
     inputs:
       artifact-name:
@@ -35,12 +35,13 @@ on:
       run-id:
         description: 'The run id that made the build'
         required: true
-        type: number
+        type: string
     
 jobs:
   package:
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       id-token: write
       attestations: write
@@ -57,9 +58,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ github.event.inputs.artifact-name }}
-          run-id: ${{ github.event.inputs.run-id }}
-          github-token: ${{ secrets.PERSONAL_TOKEN }}
-          repository: ${{ github.repository }}
+          run-id: $((${{ github.event.inputs.run-id }})) # convert string to number to preven issue "artifact list for workflow run NaN in ...
+          github-token: ${{ github.token }}
 
       - name: Unpack artifact
         run: |
