@@ -1,0 +1,124 @@
+name: setup-environment
+author: 'ArchitektApx'
+description: Setup the test/build environment for workflows in this repository
+inputs:
+  environment:
+    description: 'The environment to setup'
+    required: true
+    default: 'test'
+  goversion:
+    description: 'The Go version to install'
+    required: false
+    default: '1.21.9'
+  pythonversion:
+    description: 'The Python version to install'
+    required: false
+    default: '3.10.x'
+  qtversion:
+    description: 'The Qt version to install'
+    required: false
+    default: '6.7.0'
+  applypatches:
+    description: 'Apply all patchfiles from the /patches directory'
+    required: false
+    default: 'false'
+  usecaching:
+    description: 'Use caching options in child actions'
+    required: false
+    default: 'true'
+  exportGHEnvVars:
+    description: 'Export GitHub Actions cache environment variables'
+    required: false
+    default: 'false'
+  exportVCPKGEnvVars:
+    description: 'Export VCPKG environment variables'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Python ${{ inputs.pythonversion }} and cache dependencies
+      if: ${{ inputs.usecaching == 'true' }}
+      uses: buildjet/setup-python@v5
+      with:
+        python-version: ${{ inputs.pythonversion }}
+        cache: pip
+      
+    - name: Install Python ${{ inputs.pythonversion }}
+      if: ${{ inputs.usecaching == 'false' }}
+      uses: buildjet/setup-python@v5
+      with:
+        python-version: ${{ inputs.pythonversion }}
+
+    - name: Install Go ${{ inputs.goversion }} and enable caching
+      uses: buildjet/setup-go@v5
+      with:
+        go-version: ${{ inputs.goversion }}
+        cache: ${{ inputs.usecaching }}
+
+    - name: Install Qt ${{ inputs.qtversion }} (Linux ARM64 Fork)
+      uses: ArchitektApx/install-qt-action@v4
+      with:
+        cache: true
+        version: ${{ inputs.qtversion }}
+        host: linux_arm64
+        arch: linux_gcc_arm64
+        modules: 'qtmultimedia qtpositioning qtwebchannel qtwebengine qtwebview'
+
+    - name: Install build dependencies
+      if: ${{ inputs.environment == 'build' || inputs.environment == 'test' }}
+      shell: bash
+      run: |
+        sudo apt update && sudo apt-get install -y \
+          ninja-build \
+          libglvnd-dev \
+          libsecret-1-dev \
+          pkg-config
+
+    - name: Install test dependencies 
+      if: ${{ inputs.environment == 'test' }}
+      shell: bash
+      run: |
+        # dont rely on installs via make targets
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+        echo "PATH=$(go env GOPATH)/bin:$PATH" >> $GITHUB_ENV
+        echo "GOMAXPROCS=$(nproc)" >> $GITHUB_ENV
+
+        go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
+        go install github.com/bitfield/gotestdox/cmd/gotestdox@latest
+        sudo apt-get install -y \
+            golang-github-golang-mock-dev \
+            mockgen
+
+    - name: Install Packaging dependencies
+      if: ${{ inputs.environment == 'package' }}
+      shell: bash
+      run: |
+        echo "TODO: Add packaging dependencies here"
+
+    - name: Apply patches
+      if: ${{ inputs.applypatches == 'true' }}
+      shell: bash
+      run: |
+        for patch in $(ls patches/*.patch | sort); do
+          echo "Applying patch $patch"
+          patch -p1 < $patch
+        done
+
+    - name: Export GitHub Actions cache environment variables
+      if: ${{ inputs.exportGHEnvVars == 'true' }}
+      uses: actions/github-script@v7
+      with:
+        script: |
+          core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+          core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+    - name: Export VCPKG environment variables
+      if: ${{ inputs.exportVCPKGEnvVars == 'true' }}
+      shell: bash
+      run: |
+        echo "VCPKG_BINARY_SOURCES=clear;x-gha,readwrite" >> "$GITHUB_ENV"
+        echo "VCPKG_FORCE_SYSTEM_BINARIES=1" >> "$GITHUB_ENV"

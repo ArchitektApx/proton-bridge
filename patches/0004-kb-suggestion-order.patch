@@ -1,5 +1,6 @@
 diff --git a/internal/frontend/bridge-gui/bridge-gui-tester/GRPCService.cpp b/internal/frontend/bridge-gui/bridge-gui-tester/GRPCService.cpp
 index 22d02708..65995937 100644
+# make the test pass by changing the order of the title and url
 --- a/internal/frontend/bridge-gui/bridge-gui-tester/GRPCService.cpp
 +++ b/internal/frontend/bridge-gui/bridge-gui-tester/GRPCService.cpp
 @@ -365,8 +365,8 @@ grpc::Status GRPCService::RequestKnowledgeBaseSuggestions(ServerContext*, String
