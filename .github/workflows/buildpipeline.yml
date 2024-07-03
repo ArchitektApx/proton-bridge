@@ -23,7 +23,7 @@ jobs:
       artifact-name: ${{ steps.fix-build-name.outputs.artifact-name }}
       version: ${{ steps.fix-build-name.outputs.version }}
       revision: ${{ steps.fix-build-name.outputs.revision }}
-      run-id: ${{ steps.fix-build-name.outputs.run-id }}
+      run-id: ${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
         with:

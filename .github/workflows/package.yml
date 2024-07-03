@@ -58,8 +58,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ github.event.inputs.artifact-name }}
-          run-id: $((${{ github.event.inputs.run-id }})) # convert string to number to preven issue "artifact list for workflow run NaN in ...
-          github-token: ${{ github.token }}
+          run-id: ${{ github.event.inputs.run-id }}
+          github-token: ${{ secrets.PERSONAL_TOKEN }}
+          repository: ${{ github.repository }}
 
       - name: Unpack artifact
         run: |
