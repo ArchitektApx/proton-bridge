@@ -1,0 +1,165 @@
+name: Build latest tagged release
+on: 
+  push:
+    tags:
+      - v*
+
+jobs: 
+  build:
+    # trunk-ignore(actionlint/runner-label)
+    runs-on: buildjet-4vcpu-ubuntu-2204-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+
+      # setup environment
+      - name: Install Python and cache dependencies
+        uses: buildjet/setup-python@v5
+        with:
+          python-version: '3.10.x'
+          cache: pip
+
+      - name: Install Go and enable caching
+        uses: buildjet/setup-go@v5
+        with:
+          go-version: '1.21.9'
+          cache: true
+
+      - name: Install ARM Qt 6.7.0
+        uses: ArchitektApx/install-qt-action@v4
+        with:
+          cache: true
+          version: 6.7.0
+          host: linux_arm64
+          arch: linux_gcc_arm64
+          modules: 'qtmultimedia qtpositioning qtwebchannel qtwebengine qtwebview'
+
+      - name: Install build dependencies
+        run: |
+          sudo apt update && sudo apt-get install -y \
+            ninja-build \
+            libglvnd-dev \
+            libsecret-1-dev \
+            pkg-config
+
+      - name: Install Ruby and fpm for packaging
+        run: |
+          sudo apt-get install -y ruby-full
+          wget https://rubygems.org/rubygems/rubygems-3.4.8.tgz
+          tar xvzf rubygems-3.4.8.tgz
+          cd rubygems-3.4.8
+          sudo ruby setup.rb
+          sudo gem install dotenv fpm
+
+      - name: Apply patches to upstream source
+        run: |
+          for patch in $(ls patches/*.patch | sort); do
+            echo "Applying patch $patch"
+            patch -p1 < $patch
+          done
+
+      - name: Export GitHub Actions cache environment variables
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+    
+      - name: Export VCPKG environment variables
+        shell: bash
+        run: |
+          echo "VCPKG_BINARY_SOURCES=clear;x-gha,readwrite" >> "$GITHUB_ENV"
+          echo "VCPKG_FORCE_SYSTEM_BINARIES=1" >> "$GITHUB_ENV"
+
+
+      # build and package
+      - name: Run Build
+        run: make build
+
+      - name: Prepare for packaging
+        run: |
+          TAG_VER="$(echo ${{ github.ref }} | sed 's/refs\/tags\///' )"
+          if [ -z "$TAG_VER" ]; then
+            TAG_VER="latest"
+          fi
+
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          BUILD_NAME="bridge-linux-${TAG_VER}-${COMMIT_SHA}.aarch64.tar.gz"
+
+          mkdir -p packaging
+          mkdir -p output
+          tar -xzf bridge*.tgz -C packaging
+          cp bridge*.tgz output/
+
+          # after install script for deb/rpm 
+          cat >> after-install.sh <<EOF
+          #!/bin/sh
+          # link the executable to /usr/bin
+          ln -sF /usr/lib/protonmail/bridge/proton-bridge /usr/bin/protonmail-bridge
+          # update the desktop database and icon cache if gnome is installed
+          if [ -x /usr/bin/update-desktop-database ]; then
+            /usr/bin/update-desktop-database
+          fi
+          if [ -x /usr/bin/update-icon-caches ]; then
+            /usr/bin/update-icon-caches /usr/share/icons/hicolor
+          fi
+          EOF
+
+          # write shared fpm config
+          cat > .fpm <<EOF
+          -s dir
+          -n protonmail-bridge
+          -v $TAG_VER
+          --verbose
+          --force
+          --chdir ${{ github.workspace }}/packaging
+          --architecture aarch64
+          --provides protonmail-bridge
+          --description "Proton Mail Bridge is a desktop application that runs in the background encrypting and decrypting messages as they enter and leave your computer."
+          --license "GPLv3"
+          --maintainer "Proton AG (Proton Mail Bridge developers) <bridge@protonmail.ch> packed by ArchitektApx"
+          --vendor "Proton AG"
+          --url "https://proton.me/mail/bridge"
+          --after-install ${{ github.workspace }}/after-install.sh
+          proton-bridge.desktop=/usr/share/applications/protonmail-bridge.desktop logo.svg=/usr/share/icons/hicolor/scalable/apps/protonmail-bridge.svg Changelog.md=/usr/share/doc/protonmail/bridge/Changelog.md LICENSE=/usr/share/doc/protonmail/bridge/LICENSE .=/usr/lib/protonmail/bridge
+          EOF
+
+          # debug output to check if the file was written correctly
+          echo "::debug::$(cat .fpm)"
+
+      - name: Package RPM
+        run: |
+          echo "::debug::$(ls -la packaging)"
+          RPM_DEPENDS="dejavu-sans-fonts, fontconfig, glib2, glibc, libEGL, libgcc, libglvnd-glx, libsecret, libstdc++, libxkbcommon-x11"
+          fpm -t rpm --rpm-tag '%define _build_id_links none' --rpm-tag '%undefine _missing_build_ids_terminate_build' --depends "$RPM_DEPENDS" --rpm-summary "Proton Mail Bridge"
+          
+          mv *.rpm output/
+  
+      - name: Package Deb
+        run: |
+          echo "::debug::$(ls -la packaging)"
+          DEB_DEPENDS="libegl1, libc6, libsecret-1-0, libglib2.0-0, libstdc++6, libgcc1, libpulse-mainloop-glib0, fonts-dejavu"
+          DEB_SUGGESTS="gnome-keyring, pass"
+          fpm -t deb --depends "$DEB_DEPENDS" --deb-suggests "$DEB_SUGGESTS"
+          
+          mv *.deb output/
+  
+      - name: Make sha256sums textfile and tar everything together
+        run: |
+          cd output/
+          sha256sum *.rpm *.deb > sha256sums.txt
+          TAG_VER="$(echo ${{ github.ref }} | sed 's/refs\/tags\///' )"
+          if [ -z "$TAG_VER" ]; then
+            TAG_VER="latest"
+          fi
+
+          #COMMIT_SHA=$(git rev-parse --short HEAD)
+          #tar -czf protonmail-bridge-${TAG_VER}-${COMMIT_SHA}.aarch64.tar.gz *
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: output/*
+  

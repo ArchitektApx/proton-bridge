@@ -8,7 +8,7 @@ index c299d5ce..614f8a90 100755
      check_exit "Failed installing gRPC for macOS / Intel x64"
 -elif [[ "$OSTYPE" == "linux"* ]]; then
 +elif [[ "$OSTYPE" == "linux"* && "$(uname -m)" == "aarch64" ]]; then
-+    ${VCPKG_EXE} install sentry-native:arm64-linux grpc:arm64-linux --clean-after-build
++    ${VCPKG_EXE} install sentry-native:arm64-linux grpc:arm64-linux
 +    check_exit "Failed installing gRPC for Linux / ARM64"
 +elif [[ "$OSTYPE" == "linux"* && "$(uname -m)" == "x86_64" ]]; then
      ${VCPKG_EXE} install sentry-native:x64-linux grpc:x64-linux --clean-after-build

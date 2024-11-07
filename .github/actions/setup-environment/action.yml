@@ -1,6 +1,6 @@
 name: setup-environment
 author: 'ArchitektApx'
-description: Setup the test/build environment for workflows in this repository
+description: Setup the build environment for workflows in this repository
 inputs:
   environment:
     description: 'The environment to setup'
